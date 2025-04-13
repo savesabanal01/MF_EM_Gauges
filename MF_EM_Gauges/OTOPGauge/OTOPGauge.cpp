@@ -286,13 +286,11 @@ void drawOPGauge()
 void setOilTemperature (float value)
 {
     oilTemperature = value;
-    drawGauge();
 }
 
 void setOilPressure (float value)
 {
     oilPressure = value;
-    drawGauge();
 }
 
 

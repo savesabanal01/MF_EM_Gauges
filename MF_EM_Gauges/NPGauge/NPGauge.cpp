@@ -57,6 +57,11 @@ uint16_t instrumentX0              = 0;
 uint16_t instrumentY0              = 0;
 // bool     showLogo                  = true;
 
+int oneValue = 0;
+int tenValue = 0;
+int hundredValue = 0;
+int thousandValue = 0;
+
 void init(uint8_t pin_backlight)
 {
     // backlight_pin = pin_backlight;
@@ -145,19 +150,29 @@ void update()
 
 void drawGauge()
 {
+    oneValue = (int)RPM % 10;
+    tenValue = (int)(RPM / 10) % 10;
+    hundredValue = (int)(RPM / 100) % 10;
+    thousandValue = (int)(RPM/1000) % 10;
 
-    
     minGreenAngle = scaleValue(minGreenRPM, 0, 2400, -110, 110);
     maxGreenAngle = scaleValue(maxGreenRPM, 0, 2400, -110, 110);
     redlineRPMAngle = scaleValue(redlineRPM, 0, 2400, -110, 110);
-
+    needleRotationAngle = scaleValue(RPM, 0, 2400, -110, 100);
     
     mainGaugeSpr.fillSprite(TFT_BLACK);
     mainGaugeSpr.pushImage(0, 0, 240, 240, main_gauge);
-    mainGaugeSpr.drawString(String((int)RPM), 168, 170);
+    // mainGaugeSpr.drawString(String((int)RPM), 168, 170);    
+    mainGaugeSpr.drawString(String(oneValue), 162, 170);
+    mainGaugeSpr.drawString(String(tenValue), 140, 170);
+    mainGaugeSpr.drawString(String(hundredValue), 119, 170);
+    mainGaugeSpr.drawString(String(thousandValue), 97, 170);
+
     mainGaugeSpr.drawSmoothArc(120, 120, 205 / 2, 195 / 2, minGreenAngle + 180, maxGreenAngle + 180, TFT_GREEN, TFT_BLACK);
 
+    // redMarkerSpr.pushRotated(&mainGaugeSpr. redlineRPMAngle, TFT_BLACK);
     redMarkerSpr.pushRotated(&mainGaugeSpr, redlineRPMAngle, TFT_BLACK);
+    // needleSpr.pushRotated(&mainGaugeSpr. needleRotationAngle, TFT_BLUE);
     needleSpr.pushRotated(&mainGaugeSpr, needleRotationAngle, TFT_BLUE);
 
     if (RPM >= redlineRPM )
@@ -174,7 +189,6 @@ void drawGauge()
 void setRPM (float value)
 {
     RPM = value;
-    drawGauge();
 }
 
 void setInstrumentBrightnessRatio(float ratio)

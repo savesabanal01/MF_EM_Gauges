@@ -34,6 +34,11 @@ uint16_t instrumentX0              = 80;
 uint16_t instrumentY0              = 0;
 bool     showLogo                  = true;
 
+int oneValue = 0;
+int tenValue = 0;
+int hundredValue = 0;
+int thousandValue = 0;
+
 void init(uint8_t pin_backlight)
 {
     // backlight_pin = pin_backlight;
@@ -117,9 +122,18 @@ void drawGauge()
 {
     needleRotationAngle = scaleValue(fuelFlow, 0, 70, -110, 110);
 
+    oneValue = (int)fuelFlow % 10;
+    tenValue = (int)(fuelFlow/ 10) % 10;
+    hundredValue = (int)(fuelFlow / 100) % 10;
+    thousandValue = (int)(fuelFlow /1000) % 10;
+
     mainGaugeSpr.fillSprite(TFT_BLACK);
     mainGaugeSpr.pushImage(0, 0, 240, 240, main_gauge);
-    mainGaugeSpr.drawString(String((int)fuelFlow), 168, 170);
+ //   mainGaugeSpr.drawString(String((int)fuelFlow), 168, 170);
+    mainGaugeSpr.drawString(String(oneValue), 162, 170);
+    mainGaugeSpr.drawString(String(tenValue), 140, 170);
+    mainGaugeSpr.drawString(String(hundredValue), 119, 170);
+    mainGaugeSpr.drawString(String(thousandValue), 97, 170);
     needleSpr.pushRotated(&mainGaugeSpr, needleRotationAngle, TFT_BLUE);
 
 #ifdef USE_DMA_TO_TFT
@@ -135,7 +149,6 @@ void drawGauge()
 void setFuelFlow(float value)
 {
     fuelFlow = value;
-    drawGauge();
 }
 
 void setInstrumentBrightnessRatio(float ratio)

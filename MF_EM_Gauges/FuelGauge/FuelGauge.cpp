@@ -145,13 +145,11 @@ void drawGauge()
 void setLeftFuel (float value)
 {
     leftFuel = value;
-    drawGauge();
 }
 
 void setRightFuel (float value)
 {
     rightFuel = value;
-    drawGauge();
 }
 
 
