@@ -2,10 +2,12 @@
 
 #include <Arduino.h>
 #include "NPGauge.h"
+#include "FFGauge.h"
 
 // only one entry required if you have only one custom device
 enum {
-    NP_GAUGE = 1
+    NP_GAUGE = 1,
+    FF_GAUGE
 };
 class MFCustomDevice
 {
@@ -20,6 +22,7 @@ private:
     bool           getStringFromMem(uint16_t addreeprom, char *buffer, bool configFromFlash);
     bool           _initialized = false;
     NPGauge         *_myNPGauge;
+    FFGauge         *_myFFGauge;
     uint8_t        _pin1, _pin2, _pin3;
     uint8_t        _customType = 0;
 };

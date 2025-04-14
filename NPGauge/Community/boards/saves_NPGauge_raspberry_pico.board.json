@@ -25,7 +25,7 @@
       "ResetFirmwareFile": "reset.raspberry_pico_flash_nuke.uf2",
       "CustomDeviceTypes": [
         "NPGauge",
-        "NPGauge2"
+        "FFGauge"
       ],
       "Community": {
         "Project": "Your Project",

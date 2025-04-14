@@ -2,11 +2,11 @@
 #include "allocateMem.h"
 #include "commandmessenger.h"
 #include <TFT_eSPI.h>
-#include "./include/DotMatrix_Regular-30.h"
-#include "./include/main_gauge.h"
-#include "./include/needle.h"
-#include "./include/red_led.h"
-#include "./include/red_marker.h"
+#include "NPGauge/include/DotMatrix_Regular-30.h"
+#include "NPGauge/include/main_gauge.h"
+#include "NPGauge/include/needle.h"
+#include "NPGauge/include/red_led.h"
+#include "NPGauge/include/red_marker.h"
 
 TFT_eSPI    tft;
 TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);

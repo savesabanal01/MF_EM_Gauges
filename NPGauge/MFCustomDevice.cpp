@@ -87,6 +87,8 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
     getStringFromMem(adrType, parameter, configFromFlash);
     if (strcmp(parameter, "NPGauge") == 0)
         _customType = NP_GAUGE;
+    if (strcmp(parameter, "FFGauge") == 0)
+        _customType = FF_GAUGE;
 
     if (_customType == NP_GAUGE) {
         /* **********************************************************************************
@@ -144,7 +146,64 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
         // or this function could be called from the custom constructor or attach() function
         _myNPGauge->begin();
         _initialized = true;
-    } else {
+    } else if (_customType == FF_GAUGE) {
+        /* **********************************************************************************
+            Check if the device fits into the device buffer
+        ********************************************************************************** */
+        if (!FitInMemory(sizeof(FFGauge))) {
+            // Error Message to Connector
+            cmdMessenger.sendCmd(kStatus, F("Custom Device does not fit in Memory"));
+            return;
+        }
+        /* **********************************************************************************************
+            Read the pins from the EEPROM or Flash, copy them into a buffer
+            If you have set '"isI2C": true' in the device.json file, the first value is the I2C address
+        ********************************************************************************************** */
+        getStringFromMem(adrPin, parameter, configFromFlash);
+        /* **********************************************************************************************
+            Split the pins up into single pins. As the number of pins could be different between
+            multiple devices, it is done here.
+        ********************************************************************************************** */
+        params = strtok_r(parameter, "|", &p);
+        _pin1  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin2  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin3  = atoi(params);
+
+        /* **********************************************************************************
+            Read the configuration from the EEPROM or Flash, copy it into a buffer.
+        ********************************************************************************** */
+        getStringFromMem(adrConfig, parameter, configFromFlash);
+        /* **********************************************************************************
+            Split the config up into single parameter. As the number of parameters could be
+            different between multiple devices, it is done here.
+            This is just an example how to process the init string. Do NOT use
+            "," or ";" as delimiter for multiple parameters but e.g. "|"
+            For most customer devices it is not required.
+            In this case just delete the following
+        ********************************************************************************** */
+        uint16_t Parameter1;
+        char    *Parameter2;
+        params     = strtok_r(parameter, "|", &p);
+        Parameter1 = atoi(params);
+        params     = strtok_r(NULL, "|", &p);
+        Parameter2 = params;
+
+        /* **********************************************************************************
+            Next call the constructor of your custom device
+            adapt it to the needs of your constructor
+        ********************************************************************************** */
+        // In most cases you need only one of the following functions
+        // depending on if the constuctor takes the variables or a separate function is required
+        _myFFGauge = new (allocateMemory(sizeof(FFGauge))) FFGauge(_pin1, _pin2);
+        _myFFGauge->attach(Parameter1, Parameter2);
+        // if your custom device does not need a separate begin() function, delete the following
+        // or this function could be called from the custom constructor or attach() function
+        _myFFGauge->begin();
+        _initialized = true;
+    }
+    else {
         cmdMessenger.sendCmd(kStatus, F("Custom Device is not supported by this firmware version"));
     }
 }
@@ -159,6 +218,9 @@ void MFCustomDevice::detach()
     _initialized = false;
     if (_customType == NP_GAUGE) {
         _myNPGauge->detach();
+    }
+    else if (_customType == FF_GAUGE) {
+        _myFFGauge->detach();
     }
 }
 
@@ -180,6 +242,9 @@ void MFCustomDevice::update()
     if (_customType == NP_GAUGE) {
         _myNPGauge->update();
     }
+    else if (_customType == FF_GAUGE) {
+        _myFFGauge->update();
+    }
 }
 
 /* **********************************************************************************
@@ -194,4 +259,7 @@ void MFCustomDevice::set(int16_t messageID, char *setPoint)
     if (_customType == NP_GAUGE) {
         _myNPGauge->set(messageID, setPoint);
     } 
+    else if  (_customType == FF_GAUGE) {
+        _myFFGauge->set(messageID, setPoint);
+    }
 }
