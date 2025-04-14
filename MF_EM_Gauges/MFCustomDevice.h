@@ -1,13 +1,14 @@
 #pragma once
 
 #include <Arduino.h>
-#include "MyCustomClass.h"
+#include "MF_EM_Gauges.h"
 
 // only one entry required if you have only one custom device
 enum {
-    MY_CUSTOM_DEVICE_1 = 1,
+    MF_EM_GAUGES = 1,
     MY_CUSTOM_DEVICE_2
 };
+
 class MFCustomDevice
 {
 public:
@@ -20,7 +21,7 @@ public:
 private:
     bool           getStringFromMem(uint16_t addreeprom, char *buffer, bool configFromFlash);
     bool           _initialized = false;
-    MyCustomClass *_mydevice;
+    MF_EM_Gauges *_mydevice;
     uint8_t        _pin1, _pin2, _pin3;
     uint8_t        _customType = 0;
 };
