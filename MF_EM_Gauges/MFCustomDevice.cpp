@@ -87,6 +87,8 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
     getStringFromMem(adrType, parameter, configFromFlash);
     if (strcmp(parameter, "MF_EM_Gauges") == 0)
         _customType = MF_EM_GAUGES;
+    if (strcmp(parameter, "NPGauge") == 0)
+        _customType = NP_GAUGE;
 
     if (_customType == MF_EM_GAUGES) {
         /* **********************************************************************************
@@ -144,11 +146,11 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
         // or this function could be called from the custom constructor or attach() function
         _mydevice->begin();
         _initialized = true;
-    } else if (_customType == MY_CUSTOM_DEVICE_2) {
+    } else if (_customType == NP_GAUGE) {
         /* **********************************************************************************
             Check if the device fits into the device buffer
         ********************************************************************************** */
-        if (!FitInMemory(sizeof(MF_EM_Gauges))) {
+        if (!FitInMemory(sizeof(NPGauge))) {
             // Error Message to Connector
             cmdMessenger.sendCmd(kStatus, F("Custom Device does not fit in Memory"));
             return;
@@ -195,11 +197,11 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
         ********************************************************************************** */
         // In most cases you need only one of the following functions
         // depending on if the constuctor takes the variables or a separate function is required
-        _mydevice = new (allocateMemory(sizeof(MF_EM_Gauges))) MF_EM_Gauges(_pin1, _pin2);
-        _mydevice->attach(Parameter1, Parameter2);
+        _myNPGauge = new (allocateMemory(sizeof(NPGauge))) NPGauge(_pin1, _pin2);
+        _myNPGauge->attach(Parameter1, Parameter2);
         // if your custom device does not need a separate begin() function, delete the following
         // or this function could be called from the custom constructor or attach() function
-        _mydevice->begin();
+        _myNPGauge->begin();
         _initialized = true;
     } else {
         cmdMessenger.sendCmd(kStatus, F("Custom Device is not supported by this firmware version"));
@@ -216,8 +218,8 @@ void MFCustomDevice::detach()
     _initialized = false;
     if (_customType == MF_EM_GAUGES) {
         _mydevice->detach();
-    } else if (_customType == MY_CUSTOM_DEVICE_2) {
-        _mydevice->detach();
+    } else if (_customType == NP_GAUGE) {
+        _myNPGauge->detach();
     }
 }
 
@@ -237,9 +239,9 @@ void MFCustomDevice::update()
         Do something if required
     ********************************************************************************** */
     if (_customType == MF_EM_GAUGES) {
-        _mydevice->update();
-    } else if (_customType == MY_CUSTOM_DEVICE_2) {
-        _mydevice->update();
+        _myNPGauge->update();
+    } else if (_customType == NP_GAUGE) {
+        _myNPGauge->update();
     }
 }
 
@@ -254,7 +256,7 @@ void MFCustomDevice::set(int16_t messageID, char *setPoint)
 
     if (_customType == MF_EM_GAUGES) {
         _mydevice->set(messageID, setPoint);
-    } else if (_customType == MY_CUSTOM_DEVICE_2) {
-        _mydevice->set(messageID, setPoint);
+    } else if (_customType == NP_GAUGE) {
+        _myNPGauge->set(messageID, setPoint);
     }
 }
