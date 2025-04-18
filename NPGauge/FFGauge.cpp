@@ -6,6 +6,9 @@
 #include "FFGauge/include/DotMatrix_Regular-30.h"
 #include "FFGauge/include/needle.h"
 
+static TFT_eSPI    tft;
+static TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
+static TFT_eSprite needleSpr = TFT_eSprite(&tft);;
 
 /* **********************************************************************************
     This is just the basic code to set up your custom device.

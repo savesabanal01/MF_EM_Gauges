@@ -23,9 +23,7 @@ private:
     bool    _initialised;
     uint8_t _pin1, _pin2, _pin3;
     
-    TFT_eSPI    tft;
-    TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
-    TFT_eSprite needleSpr = TFT_eSprite(&tft);;
+
 
     // Variables
     float    fuelFlow = 0; 

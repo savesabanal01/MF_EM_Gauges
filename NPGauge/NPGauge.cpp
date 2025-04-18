@@ -13,49 +13,6 @@ TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
 TFT_eSprite needleSpr = TFT_eSprite(&tft);
 TFT_eSprite redLEDSpr = TFT_eSprite(&tft);
 TFT_eSprite redMarkerSpr = TFT_eSprite(&tft);
-
-// TFT_eSPI    *tft;
-// TFT_eSprite *mainGaugeSpr;
-// TFT_eSprite *needleSpr;
-// TFT_eSprite *redLEDSpr;
-// TFT_eSprite *redMarkerSpr;
-
-// Pointers to start of Sprites in RAM (these are then "image" pointers)
-uint16_t *mainGaugeSprPtr;
-
-
-
-// Variables
-float    RPM                  = 0;  // RPM Value from sim
-float    instrumentBrightness      = 255;  // Instrument Brightness Ratio from sim
-float    instrumentBrightnessRatio = 0;
-float    needleRotationAngle         = 0; // angle of rotation of needle based on the RPM
-
-float minGreenAngle = 0;
-float maxGreenAngle = 0;
-float redlineRPMAngle = 0;
-
-float minGreenRPM = 1600;
-float maxGreenRPM = 1900;
-float redlineRPM = 1900;
-
-int numOfDataPoints = 3;
-int counter = 0;
-float sumOfDataPoints = 0;
-float averageOfDataPoints = 0;
-
-bool     powerSaveFlag             = false;
-uint32_t startLogoMillis           = 0;
-uint8_t  backlight_pin             = 0;
-uint16_t instrumentX0              = 0;
-uint16_t instrumentY0              = 0;
-// bool     showLogo                  = true;
-
-int oneValue = 0;
-int tenValue = 0;
-int hundredValue = 0;
-int thousandValue = 0;
-
 /* **********************************************************************************
     This is just the basic code to set up your custom device.
     Change/add your code as needed.
