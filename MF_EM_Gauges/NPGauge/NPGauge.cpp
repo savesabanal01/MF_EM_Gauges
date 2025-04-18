@@ -1,70 +1,38 @@
 #include "NPGauge.h"
+#include "allocateMem.h"
+#include "commandmessenger.h"
+#include <TFT_eSPI.h>
+#include "include/DotMatrix_Regular-30.h"
+#include "include/main_gauge.h"
+#include "include/needle.h"
+#include "include/red_led.h"
+#include "include/red_marker.h"
 
-namespace NPGauge
+static TFT_eSPI    tft;
+static TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
+static TFT_eSprite needleSpr = TFT_eSprite(&tft);
+static TFT_eSprite redLEDSpr = TFT_eSprite(&tft);
+static TFT_eSprite redMarkerSpr = TFT_eSprite(&tft);
+/* **********************************************************************************
+    This is just the basic code to set up your custom device.
+    Change/add your code as needed.
+********************************************************************************** */
+
+NPGauge::NPGauge(uint8_t Pin1, uint8_t Pin2)
 {
+    _pin1 = Pin1;
+    _pin2 = Pin2;
+}
 
-#include "./include/DotMatrix_Regular-30.h"
-#include "./include/main_gauge.h"
-#include "./include/needle.h"
-#include "./include/red_led.h"
-#include "./include/red_marker.h"
-
-TFT_eSPI    tft;
-TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
-TFT_eSprite needleSpr = TFT_eSprite(&tft);
-TFT_eSprite redLEDSpr = TFT_eSprite(&tft);
-TFT_eSprite redMarkerSpr = TFT_eSprite(&tft);
-
-// TFT_eSPI    *tft;
-// TFT_eSprite *mainGaugeSpr;
-// TFT_eSprite *needleSpr;
-// TFT_eSprite *redLEDSpr;
-// TFT_eSprite *redMarkerSpr;
-
-// Pointers to start of Sprites in RAM (these are then "image" pointers)
-uint16_t *mainGaugeSprPtr;
-
-// Function declarations
-float scaleValue(float x, float in_min, float in_max, float out_min, float out_max);
-void  setInstrumentBrightnessRatio(float ratio);
-void  setRPM(float value);
-void  setPowerSave(bool enabled);
-void  drawGauge();
-
-// Variables
-float    RPM                  = 0;  // RPM Value from sim
-float    instrumentBrightness      = 255;  // Instrument Brightness Ratio from sim
-float    instrumentBrightnessRatio = 0;
-float    needleRotationAngle         = 0; // angle of rotation of needle based on the RPM
-
-float minGreenAngle = 0;
-float maxGreenAngle = 0;
-float redlineRPMAngle = 0;
-
-float minGreenRPM = 1600;
-float maxGreenRPM = 1900;
-float redlineRPM = 1900;
-
-int numOfDataPoints = 3;
-int counter = 0;
-float sumOfDataPoints = 0;
-float averageOfDataPoints = 0;
-
-bool     powerSaveFlag             = false;
-uint32_t startLogoMillis           = 0;
-uint8_t  backlight_pin             = 0;
-uint16_t instrumentX0              = 0;
-uint16_t instrumentY0              = 0;
-// bool     showLogo                  = true;
-
-int oneValue = 0;
-int tenValue = 0;
-int hundredValue = 0;
-int thousandValue = 0;
-
-void init(uint8_t pin_backlight)
+void NPGauge::begin()
 {
+}
+
+void NPGauge::attach(uint16_t Pin3, char *init)
+{
+    _pin3 = Pin3;
     // backlight_pin = pin_backlight;
+    _pin3 = Pin3;
     backlight_pin = 16;
     pinMode(backlight_pin, OUTPUT);
     digitalWrite(backlight_pin, HIGH);
@@ -76,10 +44,6 @@ void init(uint8_t pin_backlight)
     tft.setPivot(120, 120);
     tft.startWrite();
     
-#ifdef USE_DMA_TO_TFT
-    tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
-#endif
-
     mainGaugeSprPtr = (uint16_t *)mainGaugeSpr.createSprite(240, 240);
     mainGaugeSpr.setPivot(120, 120);
     mainGaugeSpr.loadFont(DotMatrix_Regular_30);
@@ -99,16 +63,20 @@ void init(uint8_t pin_backlight)
 
 }
 
-void stop()
+void NPGauge::detach()
 {
+    if (!_initialised)
+        return;
+
     mainGaugeSpr.deleteSprite();
     needleSpr.deleteSprite();
     redLEDSpr.deleteSprite();
     redMarkerSpr.deleteSprite();
     tft.endWrite();
+    _initialised = false;
 }
 
-void set(int16_t messageID, char *setPoint)
+void NPGauge::set(int16_t messageID, char *setPoint)
 {
     /* **********************************************************************************
         Each messageID has it's own value
@@ -121,6 +89,7 @@ void set(int16_t messageID, char *setPoint)
 
     ********************************************************************************** */
 
+    // do something according your messageID
     switch (messageID) {
     case -1:
         setPowerSave(true);
@@ -141,14 +110,13 @@ void set(int16_t messageID, char *setPoint)
     }
 }
 
-void update()
+void NPGauge::update()
 {
-
+    // Do something which is required regulary
     drawGauge();
-
 }
 
-void drawGauge()
+void NPGauge::drawGauge()
 {
     oneValue = (int)RPM % 10;
     tenValue = (int)(RPM / 10) % 10;
@@ -186,12 +154,12 @@ void drawGauge()
 
 }
 
-void setRPM (float value)
+void NPGauge::setRPM (float value)
 {
     RPM = value;
 }
 
-void setInstrumentBrightnessRatio(float ratio)
+void NPGauge::setInstrumentBrightnessRatio(float ratio)
 {
     instrumentBrightnessRatio = ratio;
     instrumentBrightness      = round(scaleValue(instrumentBrightnessRatio, 0, 1, 0, 255));
@@ -199,7 +167,7 @@ void setInstrumentBrightnessRatio(float ratio)
     analogWrite(backlight_pin, instrumentBrightness);
 }
 
-void setPowerSave(bool enabled)
+void NPGauge::setPowerSave(bool enabled)
 {
     if (enabled) {
         analogWrite(backlight_pin, 0);
@@ -210,9 +178,8 @@ void setPowerSave(bool enabled)
     }
 }
 
-float scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
+float NPGauge::scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
 {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-}

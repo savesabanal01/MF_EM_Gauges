@@ -1,48 +1,44 @@
-#include "FFGauge.h"
+#include "NPGauge2.h"
 #include "allocateMem.h"
 #include "commandmessenger.h"
-#include <TFT_eSPI.h>
-#include "include/main_gauge.h"
-#include "include/DotMatrix_Regular-30.h"
-#include "include/needle.h"
-
-static TFT_eSPI    tft;
-static TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
-static TFT_eSprite needleSpr = TFT_eSprite(&tft);;
+#include "NPGauge2/include/DotMatrix_Regular-30.h"
+#include "NPGauge2/include/main_gauge.h"
+#include "NPGauge2/include/needle.h"
+#include "NPGauge2/include/red_led.h"
+#include "NPGauge2/include/red_marker.h"
 
 /* **********************************************************************************
     This is just the basic code to set up your custom device.
     Change/add your code as needed.
 ********************************************************************************** */
 
-FFGauge::FFGauge(uint8_t Pin1, uint8_t Pin2)
+NPGauge2::NPGauge2(uint8_t Pin1, uint8_t Pin2)
 {
     _pin1 = Pin1;
     _pin2 = Pin2;
 }
 
-void FFGauge::begin()
+void NPGauge2::begin()
 {
 }
 
-void FFGauge::attach(uint16_t Pin3, char *init)
+void NPGauge2::attach(uint16_t Pin3, char *init)
 {
     _pin3 = Pin3;
+    // backlight_pin = pin_backlight;
+    _pin3 = Pin3;
+    backlight_pin = 16;
+    pinMode(backlight_pin, OUTPUT);
+    digitalWrite(backlight_pin, HIGH);
 
-    // tft = &_tft;
+    // tft.begin();
     tft.init();
     tft.setRotation(0);
-    tft.setPivot(120, 120);
     tft.fillScreen(TFT_BLACK);
-    tft.startWrite(); // TFT chip select held low permanently
-
-#ifdef USE_DMA_TO_TFT
-    tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
-#endif
-
-
+    tft.setPivot(120, 120);
+    tft.startWrite();
+    
     mainGaugeSprPtr = (uint16_t *)mainGaugeSpr.createSprite(240, 240);
-    // mainGaugeSpr.createSprite(240, 240);
     mainGaugeSpr.setPivot(120, 120);
     mainGaugeSpr.loadFont(DotMatrix_Regular_30);
     mainGaugeSpr.setTextColor(TFT_GREEN);
@@ -52,21 +48,29 @@ void FFGauge::attach(uint16_t Pin3, char *init)
     needleSpr.setPivot(NEEDLE_WIDTH / 2, 80);
     needleSpr.pushImage(0, 0, NEEDLE_WIDTH, NEEDLE_HEIGHT, needle);
 
+    redLEDSpr.createSprite(RED_LED_WIDTH, RED_LED_HEIGHT);
+    redLEDSpr.pushImage(0, 0, RED_LED_WIDTH, RED_LED_HEIGHT, red_led);
+
+    redMarkerSpr.createSprite(RED_MARKER_WIDTH, RED_MARKER_HEIGHT);
+    redMarkerSpr.pushImage(0, 0, RED_MARKER_WIDTH, RED_LED_HEIGHT, red_marker);
+    redMarkerSpr.setPivot(RED_MARKER_WIDTH / 2, 110);
+
 }
 
-void FFGauge::detach()
+void NPGauge2::detach()
 {
     if (!_initialised)
         return;
 
     mainGaugeSpr.deleteSprite();
     needleSpr.deleteSprite();
+    redLEDSpr.deleteSprite();
+    redMarkerSpr.deleteSprite();
     tft.endWrite();
-
     _initialised = false;
 }
 
-void FFGauge::set(int16_t messageID, char *setPoint)
+void NPGauge2::set(int16_t messageID, char *setPoint)
 {
     /* **********************************************************************************
         Each messageID has it's own value
@@ -87,36 +91,56 @@ void FFGauge::set(int16_t messageID, char *setPoint)
         setPowerSave((bool)atoi(setPoint));
         break;
     case 0:
-        setFuelFlow(atof(setPoint));
+        setRPM(atof(setPoint));
         break;
     case 1:
         setInstrumentBrightnessRatio(atof(setPoint));
         break;
-    // case 100:
-    //     setScreenRotation(atoi(setPoint));
-    // break;
+    case 100:
+        // setScreenRotation(atoi(setPoint));
+        break;
     default:
         break;
     }
 }
 
-void FFGauge::update()
+void NPGauge2::update()
 {
     // Do something which is required regulary
     drawGauge();
 }
 
-void FFGauge::drawGauge()
+void NPGauge2::drawGauge()
 {
-    needleRotationAngle = scaleValue(fuelFlow, 0, 700, -110, 110);
+    oneValue = (int)RPM % 10;
+    tenValue = (int)(RPM / 10) % 10;
+    hundredValue = (int)(RPM / 100) % 10;
+    thousandValue = (int)(RPM/1000) % 10;
 
+    minGreenAngle = scaleValue(minGreenRPM, 0, 2400, -110, 110);
+    maxGreenAngle = scaleValue(maxGreenRPM, 0, 2400, -110, 110);
+    redlineRPMAngle = scaleValue(redlineRPM, 0, 2400, -110, 110);
+    needleRotationAngle = scaleValue(RPM, 0, 2400, -110, 100);
+    
     mainGaugeSpr.fillSprite(TFT_BLACK);
     mainGaugeSpr.pushImage(0, 0, 240, 240, main_gauge);
-    mainGaugeSpr.drawString(String((int)fuelFlow), 168, 170);
+    // mainGaugeSpr.drawString(String((int)RPM), 168, 170);    
+    mainGaugeSpr.drawString(String(oneValue), 162, 170);
+    mainGaugeSpr.drawString(String(tenValue), 140, 170);
+    mainGaugeSpr.drawString(String(hundredValue), 119, 170);
+    mainGaugeSpr.drawString(String(thousandValue), 97, 170);
+
+    mainGaugeSpr.drawSmoothArc(120, 120, 205 / 2, 195 / 2, minGreenAngle + 180, maxGreenAngle + 180, TFT_GREEN, TFT_BLACK);
+
+    // redMarkerSpr.pushRotated(&mainGaugeSpr. redlineRPMAngle, TFT_BLACK);
+    redMarkerSpr.pushRotated(&mainGaugeSpr, redlineRPMAngle, TFT_BLACK);
+    // needleSpr.pushRotated(&mainGaugeSpr. needleRotationAngle, TFT_BLUE);
     needleSpr.pushRotated(&mainGaugeSpr, needleRotationAngle, TFT_BLUE);
 
+    if (RPM >= redlineRPM )
+        redLEDSpr.pushToSprite(&mainGaugeSpr, 38, 159, TFT_BLACK);
+
 #ifdef USE_DMA_TO_TFT
-    while(tft.dmaBusy()) {}
     tft.pushImageDMA(0, 0, 240, 240, mainGaugeSprPtr);
 #else
     mainGaugeSpr.pushSprite(0, 0, TFT_BLACK);
@@ -124,20 +148,20 @@ void FFGauge::drawGauge()
 
 }
 
-void FFGauge::setFuelFlow(float value)
+void NPGauge2::setRPM (float value)
 {
-    fuelFlow = value;
-    drawGauge();
+    RPM = value;
 }
 
-void FFGauge::setInstrumentBrightnessRatio(float ratio)
+void NPGauge2::setInstrumentBrightnessRatio(float ratio)
 {
     instrumentBrightnessRatio = ratio;
     instrumentBrightness      = round(scaleValue(instrumentBrightnessRatio, 0, 1, 0, 255));
+
     analogWrite(backlight_pin, instrumentBrightness);
 }
 
-void FFGauge::setPowerSave(bool enabled)
+void NPGauge2::setPowerSave(bool enabled)
 {
     if (enabled) {
         analogWrite(backlight_pin, 0);
@@ -148,8 +172,9 @@ void FFGauge::setPowerSave(bool enabled)
     }
 }
 
-
-float FFGauge::scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
+float NPGauge2::scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
 {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
+

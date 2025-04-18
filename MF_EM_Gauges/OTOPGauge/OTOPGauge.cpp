@@ -1,83 +1,35 @@
 #include "OTOPGauge.h"
-
-namespace OTOPGauge
-{
-
+#include "allocateMem.h"
+#include "commandmessenger.h"
+#include <TFT_eSPI.h>
 #include "./include/DotMatrix_Regular-30.h"
 #include "./include/main_gauge.h"
 #include "./include/needle_ot.h"
 #include "./include/needle_op.h"
 #include "./include/red_led.h"
 #include "./include/red_marker.h"
-TFT_eSPI    tft = TFT_eSPI();
-TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
-TFT_eSprite needleOTSpr = TFT_eSprite(&tft);;
-TFT_eSprite needleOPSpr = TFT_eSprite(&tft);;
-TFT_eSprite redLEDSpr = TFT_eSprite(&tft);;
-TFT_eSprite redMarkerSpr = TFT_eSprite(&tft);;
 
-// Pointers to start of Sprites in RAM (these are then "image" pointers)
-uint16_t *mainGaugeSprPtr;
+static TFT_eSPI    tft = TFT_eSPI();
+static TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft);
+static TFT_eSprite needleOTSpr = TFT_eSprite(&tft);;
+static TFT_eSprite needleOPSpr = TFT_eSprite(&tft);;
+static TFT_eSprite redLEDSpr = TFT_eSprite(&tft);;
+static TFT_eSprite redMarkerSpr = TFT_eSprite(&tft);;
 
-// Function declarations
-float scaleValue(float x, float in_min, float in_max, float out_min, float out_max);
-void  setInstrumentBrightnessRatio(float ratio);
-void  setOilTemperature(float value);     // set oil temperature from the sim
-void  setOilPressure(float value);    // set oil pressure from the sim
-void  setPowerSave(bool enabled);
-void drawOTGauge();
-void drawOPGauge();
-// void  setScreenRotation(int rotation);
-void  drawGauge();
-
-// Variables
-float    oilTemperature             = 0;  // oil temperature from the sim
-float    oilPressure                 = 0;  // oil Pressure from the sim
-float    instrumentBrightness      = 255;  // Instrument Brightness Ratio from sim
-float    instrumentBrightnessRatio = 0;
-float    needleOTRotationAngle         = 0; // angle of rotation of OT needle based on the oil temperature
-float    needleOPRotationAngle         = 0; // angle of rotation of OP needle based on the oil pressure
-
-float minOTYellow = -40; // Oil Temperature Yellow Line min value
-float maxOTYellow = 30;  // Oil Temperature Yellow Line max value
-float minOTGreen = 31;   // Oil Temperature Green Line min value
-float maxOTGreen = 100;  // Oil Temperature Green Line max value
-
-float maxOTRed = 100; // Oil Temperature Max Red Line
-float minOTRed = -40; // Oil Temperature Min Red Line
-
-float minOPYellow = 40; // Oil Temperature Yellow Line min value
-float maxOPYellow = 85; // Oil Temperature Yellow Line max value
-float minOPGreen = 85;  // Oil Temperature Green Line min value
-float maxOPGreen = 105; // Oil Temperature Green Line max value
-float maxOPRed = 200;   // Oil Temperature Max Red Line
-float minOPRed = 40;    // Oil Temperature Min Red Line
-
-float minOTGreenAngle = 0;
-float maxOTGreenAngle = 0;
-float minOTYellowAngle = 0;
-float maxOTYellowAngle = 0;
-float minOTRedAngle = 0;
-float maxOTRedAngle = 0;
-
-float minOPGreenAngle = 0;
-float maxOPGreenAngle = 0;
-float minOPYellowAngle = 0;
-float maxOPYellowAngle = 0;
-float minOPRedAngle = 0;
-float maxOPRedAngle = 0;
-
-
-
-bool     powerSaveFlag             = false;
-uint32_t startLogoMillis           = 0;
-uint8_t  backlight_pin             = 0;
-uint16_t instrumentX0              = 0;
-uint16_t instrumentY0              = 0;
-// bool     showLogo                  = true;
-
-void init(uint8_t pin_backlight)
+OTOPGauge::OTOPGauge(uint8_t Pin1, uint8_t Pin2)
 {
+    _pin1 = Pin1;
+    _pin2 = Pin2;
+}
+
+void OTOPGauge::begin()
+{
+}
+
+
+void OTOPGauge::attach(uint16_t Pin3, char *init)
+{
+    _pin3 = Pin3;
     // backlight_pin = pin_backlight;
     backlight_pin = 16;
     pinMode(backlight_pin, OUTPUT);
@@ -89,10 +41,6 @@ void init(uint8_t pin_backlight)
     tft.setPivot(120, 120);
     tft.fillScreen(TFT_BLACK);
     tft.startWrite();
-
-#ifdef USE_DMA_TO_TFT
-    tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
-#endif
 
     mainGaugeSprPtr = (uint16_t *)mainGaugeSpr.createSprite(240, 240);
     mainGaugeSpr.setPivot(120, 120);
@@ -114,17 +62,20 @@ void init(uint8_t pin_backlight)
 
 }
 
-void stop()
+void OTOPGauge::detach()
 {
+    if (!_initialised)
+        return;
     mainGaugeSpr.deleteSprite();
     needleOTSpr.deleteSprite();
     needleOPSpr.deleteSprite();
     redLEDSpr.deleteSprite();
     redMarkerSpr.deleteSprite();
     tft.endWrite();
+    _initialised = false;
 }
 
-void set(int16_t messageID, char *setPoint)
+void OTOPGauge::set(int16_t messageID, char *setPoint)
 {
     /* **********************************************************************************
         Each messageID has it's own value
@@ -160,12 +111,12 @@ void set(int16_t messageID, char *setPoint)
     }
 }
 
-void update()
+void OTOPGauge::update()
 {
     drawGauge();
 }
 
-void drawGauge()
+void OTOPGauge::drawGauge()
 {
 
     mainGaugeSpr.fillSprite(TFT_BLACK);
@@ -174,16 +125,10 @@ void drawGauge()
     drawOTGauge();
     drawOPGauge();
 
-#ifdef USE_DMA_TO_TFT
-    while(tft.dmaBusy()) {}
-    tft.pushImageDMA(0, 0, 240, 240, mainGaugeSprPtr);
-#else
     mainGaugeSpr.pushSprite(0, 0, TFT_BLACK);
-#endif
-    // gaugeSpr.pushSprite(0, 0, TFT_BLACK);
 }
 
-void drawOTGauge()
+void OTOPGauge::drawOTGauge()
 {
 
     minOTRedAngle = scaleValue(minOTRed, -50, 150, -145, -35);
@@ -213,7 +158,7 @@ void drawOTGauge()
 }
 
 
-void drawOPGauge()
+void OTOPGauge::drawOPGauge()
 {
     if (minOPRed >= 0 && minOPRed < 40)
         minOPRedAngle = scaleValue(minOPRed, 0, 40, 140, 120);
@@ -283,18 +228,18 @@ void drawOPGauge()
     // digitalWrite(2, HIGH);
 }
 
-void setOilTemperature (float value)
+void OTOPGauge::setOilTemperature (float value)
 {
     oilTemperature = value;
 }
 
-void setOilPressure (float value)
+void OTOPGauge::setOilPressure (float value)
 {
     oilPressure = value;
 }
 
 
-void setInstrumentBrightnessRatio(float ratio)
+void OTOPGauge::setInstrumentBrightnessRatio(float ratio)
 {
     instrumentBrightnessRatio = ratio;
     instrumentBrightness      = round(scaleValue(instrumentBrightnessRatio, 0, 1, 0, 255));
@@ -302,7 +247,7 @@ void setInstrumentBrightnessRatio(float ratio)
     analogWrite(backlight_pin, instrumentBrightness);
 }
 
-void setPowerSave(bool enabled)
+void OTOPGauge::setPowerSave(bool enabled)
 {
     if (enabled) {
         analogWrite(backlight_pin, 0);
@@ -313,9 +258,7 @@ void setPowerSave(bool enabled)
     }
 }
 
-float scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
+float OTOPGauge::scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
 {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
 }

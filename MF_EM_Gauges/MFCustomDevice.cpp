@@ -22,24 +22,18 @@ extern MFEEPROM MFeeprom;
     E.g. 6 pins are required, each pin could have two characters (two digits),
     each pins are delimited by "|" and the string is NULL terminated.
     -> (6 * 2) + 5 + 1 = 18 bytes is the maximum.
-    The custom type is "MyCustomClass", which means 14 characters plus NULL = 15
+    The custom type is "NPGauge", which means 14 characters plus NULL = 15
     The configuration is "myConfig", which means 8 characters plus NULL = 9
     The maximum characters to be expected is 18, so MEMLEN_STRING_BUFFER has to be at least 18
 ********************************************************************************** */
 #define MEMLEN_STRING_BUFFER 40
 
-TFT_eSPI tft = TFT_eSPI();
-// Sprites for Instruments, max. number which can be used for an instrument
-TFT_eSprite spr[10] = {TFT_eSprite(&tft), TFT_eSprite(&tft), TFT_eSprite(&tft), TFT_eSprite(&tft),
-                       TFT_eSprite(&tft), TFT_eSprite(&tft), TFT_eSprite(&tft), TFT_eSprite(&tft),
-                       TFT_eSprite(&tft), TFT_eSprite(&tft)};
-
 // reads a string from EEPROM or Flash at given address which is '.' terminated and saves it to the buffer
 bool MFCustomDevice::getStringFromMem(uint16_t addrMem, char *buffer, bool configFromFlash)
 {
-    char     temp    = 0;
-    uint8_t  counter = 0;
-    uint16_t length  = MFeeprom.get_length();
+    char     temp     = 0;
+    uint8_t  counter  = 0;
+    uint16_t length   = MFeeprom.get_length();
     do {
         if (configFromFlash) {
             temp = pgm_read_byte_near(CustomDeviceConfig + addrMem++);
@@ -81,10 +75,9 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
         Do something which is required to setup your custom device
     ********************************************************************************** */
 
-    char    *params, *p = NULL;
-    char     parameter[MEMLEN_STRING_BUFFER];
-    uint8_t  _pin1;
-    uint32_t millis_start, millis_end;
+    char   *params, *p = NULL;
+    char    parameter[MEMLEN_STRING_BUFFER];
+    uint8_t _pin1, _pin2, _pin3;
 
     /* **********************************************************************************
         Read the Type from the EEPROM or Flash, copy it into a buffer and evaluate it
@@ -92,20 +85,20 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
         is used to store the type
     ********************************************************************************** */
     getStringFromMem(adrType, parameter, configFromFlash);
+    if (strcmp(parameter, "NPGauge") == 0)
+        _customType = NP_GAUGE;
     if (strcmp(parameter, "FFGauge") == 0)
         _customType = FF_GAUGE;
-    else if (strcmp(parameter, "FuelGauge") == 0)
+    if (strcmp(parameter, "FuelGauge") == 0)
         _customType = FUEL_GAUGE;
-    else if (strcmp(parameter, "NPGauge") == 0)
-        _customType = NP_GAUGE;
-    else if (strcmp(parameter, "OTOPGauge") == 0)
+    if (strcmp(parameter, "OTOPGauge") == 0)
         _customType = OTOP_GAUGE;
 
-    if (_customType > 0 && _customType < LAST_INSTRUMENT) {
+    if (_customType == NP_GAUGE) {
         /* **********************************************************************************
             Check if the device fits into the device buffer
         ********************************************************************************** */
-        if (!FitInMemory(sizeof(TFT_eSPI))) {
+        if (!FitInMemory(sizeof(NPGauge))) {
             // Error Message to Connector
             cmdMessenger.sendCmd(kStatus, F("Custom Device does not fit in Memory"));
             return;
@@ -121,15 +114,15 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
         ********************************************************************************************** */
         params = strtok_r(parameter, "|", &p);
         _pin1  = atoi(params);
-        // params = strtok_r(NULL, "|", &p);
-        //_pin2  = atoi(params);
-        // params = strtok_r(NULL, "|", &p);
-        //_pin3  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin2  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin3  = atoi(params);
 
         /* **********************************************************************************
             Read the configuration from the EEPROM or Flash, copy it into a buffer.
         ********************************************************************************** */
-        // getStringFromMem(adrConfig, parameter, configFromFlash);
+        getStringFromMem(adrConfig, parameter, configFromFlash);
         /* **********************************************************************************
             Split the config up into single parameter. As the number of parameters could be
             different between multiple devices, it is done here.
@@ -138,12 +131,12 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
             For most customer devices it is not required.
             In this case just delete the following
         ********************************************************************************** */
-        //uint16_t Parameter1;
-        //char    *Parameter2;
-        //params     = strtok_r(parameter, "|", &p);
-        //Parameter1 = atoi(params);
-        //params     = strtok_r(NULL, "|", &p);
-        //Parameter2 = params;
+        uint16_t Parameter1;
+        char    *Parameter2;
+        params     = strtok_r(parameter, "|", &p);
+        Parameter1 = atoi(params);
+        params     = strtok_r(NULL, "|", &p);
+        Parameter2 = params;
 
         /* **********************************************************************************
             Next call the constructor of your custom device
@@ -151,39 +144,184 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
         ********************************************************************************** */
         // In most cases you need only one of the following functions
         // depending on if the constuctor takes the variables or a separate function is required
-#if defined(ARDUINO_ARCH_RP2040)
-        // Setting SPI clock to processor clock / 2
-        // This speeds up SPI transfer for the Pico
-        uint32_t freq = clock_get_hz(clk_sys);
-        // clk_peri does not have a divider, so in and out frequencies must be the same
-        clock_configure(clk_peri,
-                        0,
-                        CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
-                        freq,
-                        freq);
-#endif
-        // tft = new (allocateMemory(sizeof(TFT_eSPI))) TFT_eSPI();
-        // tft->init();
-        // tft.begin();
-        // // tft->initDMA();
-        // millis_start = millis();
-        // tft.fillScreen(TFT_BLACK);
-        // millis_end = millis();
-        // tft.setRotation(0);
-    } else {
+        _myNPGauge = new (allocateMemory(sizeof(NPGauge))) NPGauge(_pin1, _pin2);
+        _myNPGauge->attach(Parameter1, Parameter2);
+        // if your custom device does not need a separate begin() function, delete the following
+        // or this function could be called from the custom constructor or attach() function
+        _myNPGauge->begin();
+        _initialized = true;
+    } else if (_customType == FF_GAUGE) {
+        /* **********************************************************************************
+            Check if the device fits into the device buffer
+        ********************************************************************************** */
+        if (!FitInMemory(sizeof(FFGauge))) {
+            // Error Message to Connector
+            cmdMessenger.sendCmd(kStatus, F("Custom Device does not fit in Memory"));
+            return;
+        }
+        /* **********************************************************************************************
+            Read the pins from the EEPROM or Flash, copy them into a buffer
+            If you have set '"isI2C": true' in the device.json file, the first value is the I2C address
+        ********************************************************************************************** */
+        getStringFromMem(adrPin, parameter, configFromFlash);
+        /* **********************************************************************************************
+            Split the pins up into single pins. As the number of pins could be different between
+            multiple devices, it is done here.
+        ********************************************************************************************** */
+        params = strtok_r(parameter, "|", &p);
+        _pin1  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin2  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin3  = atoi(params);
+
+        /* **********************************************************************************
+            Read the configuration from the EEPROM or Flash, copy it into a buffer.
+        ********************************************************************************** */
+        getStringFromMem(adrConfig, parameter, configFromFlash);
+        /* **********************************************************************************
+            Split the config up into single parameter. As the number of parameters could be
+            different between multiple devices, it is done here.
+            This is just an example how to process the init string. Do NOT use
+            "," or ";" as delimiter for multiple parameters but e.g. "|"
+            For most customer devices it is not required.
+            In this case just delete the following
+        ********************************************************************************** */
+        uint16_t Parameter1;
+        char    *Parameter2;
+        params     = strtok_r(parameter, "|", &p);
+        Parameter1 = atoi(params);
+        params     = strtok_r(NULL, "|", &p);
+        Parameter2 = params;
+
+        /* **********************************************************************************
+            Next call the constructor of your custom device
+            adapt it to the needs of your constructor
+        ********************************************************************************** */
+        // In most cases you need only one of the following functions
+        // depending on if the constuctor takes the variables or a separate function is required
+        _myFFGauge = new (allocateMemory(sizeof(FFGauge))) FFGauge(_pin1, _pin2);
+        _myFFGauge->attach(Parameter1, Parameter2);
+        // if your custom device does not need a separate begin() function, delete the following
+        // or this function could be called from the custom constructor or attach() function
+        _myFFGauge->begin();
+        _initialized = true;
+    }  else if (_customType == FUEL_GAUGE) {
+        /* **********************************************************************************
+            Check if the device fits into the device buffer
+        ********************************************************************************** */
+        if (!FitInMemory(sizeof(FuelGauge))) {
+            // Error Message to Connector
+            cmdMessenger.sendCmd(kStatus, F("Custom Device does not fit in Memory"));
+            return;
+        }
+        /* **********************************************************************************************
+            Read the pins from the EEPROM or Flash, copy them into a buffer
+            If you have set '"isI2C": true' in the device.json file, the first value is the I2C address
+        ********************************************************************************************** */
+        getStringFromMem(adrPin, parameter, configFromFlash);
+        /* **********************************************************************************************
+            Split the pins up into single pins. As the number of pins could be different between
+            multiple devices, it is done here.
+        ********************************************************************************************** */
+        params = strtok_r(parameter, "|", &p);
+        _pin1  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin2  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin3  = atoi(params);
+
+        /* **********************************************************************************
+            Read the configuration from the EEPROM or Flash, copy it into a buffer.
+        ********************************************************************************** */
+        getStringFromMem(adrConfig, parameter, configFromFlash);
+        /* **********************************************************************************
+            Split the config up into single parameter. As the number of parameters could be
+            different between multiple devices, it is done here.
+            This is just an example how to process the init string. Do NOT use
+            "," or ";" as delimiter for multiple parameters but e.g. "|"
+            For most customer devices it is not required.
+            In this case just delete the following
+        ********************************************************************************** */
+        uint16_t Parameter1;
+        char    *Parameter2;
+        params     = strtok_r(parameter, "|", &p);
+        Parameter1 = atoi(params);
+        params     = strtok_r(NULL, "|", &p);
+        Parameter2 = params;
+
+        /* **********************************************************************************
+            Next call the constructor of your custom device
+            adapt it to the needs of your constructor
+        ********************************************************************************** */
+        // In most cases you need only one of the following functions
+        // depending on if the constuctor takes the variables or a separate function is required
+        _myFuelGauge = new (allocateMemory(sizeof(FuelGauge))) FuelGauge(_pin1, _pin2);
+        _myFuelGauge->attach(Parameter1, Parameter2);
+        // if your custom device does not need a separate begin() function, delete the following
+        // or this function could be called from the custom constructor or attach() function
+        _myFuelGauge->begin();
+        _initialized = true;
+    }  else if (_customType == OTOP_GAUGE) {
+        /* **********************************************************************************
+            Check if the device fits into the device buffer
+        ********************************************************************************** */
+        if (!FitInMemory(sizeof(OTOPGauge))) {
+            // Error Message to Connector
+            cmdMessenger.sendCmd(kStatus, F("Custom Device does not fit in Memory"));
+            return;
+        }
+        /* **********************************************************************************************
+            Read the pins from the EEPROM or Flash, copy them into a buffer
+            If you have set '"isI2C": true' in the device.json file, the first value is the I2C address
+        ********************************************************************************************** */
+        getStringFromMem(adrPin, parameter, configFromFlash);
+        /* **********************************************************************************************
+            Split the pins up into single pins. As the number of pins could be different between
+            multiple devices, it is done here.
+        ********************************************************************************************** */
+        params = strtok_r(parameter, "|", &p);
+        _pin1  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin2  = atoi(params);
+        params = strtok_r(NULL, "|", &p);
+        _pin3  = atoi(params);
+
+        /* **********************************************************************************
+            Read the configuration from the EEPROM or Flash, copy it into a buffer.
+        ********************************************************************************** */
+        getStringFromMem(adrConfig, parameter, configFromFlash);
+        /* **********************************************************************************
+            Split the config up into single parameter. As the number of parameters could be
+            different between multiple devices, it is done here.
+            This is just an example how to process the init string. Do NOT use
+            "," or ";" as delimiter for multiple parameters but e.g. "|"
+            For most customer devices it is not required.
+            In this case just delete the following
+        ********************************************************************************** */
+        uint16_t Parameter1;
+        char    *Parameter2;
+        params     = strtok_r(parameter, "|", &p);
+        Parameter1 = atoi(params);
+        params     = strtok_r(NULL, "|", &p);
+        Parameter2 = params;
+
+        /* **********************************************************************************
+            Next call the constructor of your custom device
+            adapt it to the needs of your constructor
+        ********************************************************************************** */
+        // In most cases you need only one of the following functions
+        // depending on if the constuctor takes the variables or a separate function is required
+        _myOTOPGauge = new (allocateMemory(sizeof(OTOPGauge))) OTOPGauge(_pin1, _pin2);
+        _myOTOPGauge->attach(Parameter1, Parameter2);
+        // if your custom device does not need a separate begin() function, delete the following
+        // or this function could be called from the custom constructor or attach() function
+        _myOTOPGauge->begin();
+        _initialized = true;
+    }
+    else {
         cmdMessenger.sendCmd(kStatus, F("Custom Device is not supported by this firmware version"));
     }
-    if (_customType == FF_GAUGE) {
-        FFGauge::init(_pin1);
-    } else if (_customType == FUEL_GAUGE) {
-        FuelGauge::init(_pin1);
-    } else if (_customType == NP_GAUGE) {
-        NPGauge::init(_pin1);
-    } else if (_customType == OTOP_GAUGE) {
-        OTOPGauge::init(_pin1);
-    } 
-
-    _initialized = true;
 }
 
 /* **********************************************************************************
@@ -194,14 +332,17 @@ void MFCustomDevice::attach(uint16_t adrPin, uint16_t adrType, uint16_t adrConfi
 void MFCustomDevice::detach()
 {
     _initialized = false;
-    if (_customType == FF_GAUGE) {
-        FFGauge::stop();
-    } else if (_customType == FUEL_GAUGE) {
-        FuelGauge::stop();
-    } else if (_customType == NP_GAUGE) {
-        NPGauge::stop();
-    } else if (_customType == OTOP_GAUGE) {
-        OTOPGauge::stop();
+    if (_customType == NP_GAUGE) {
+        _myNPGauge->detach();
+    }
+    else if (_customType == FF_GAUGE) {
+        _myFFGauge->detach();
+    }
+    else if (_customType == FUEL_GAUGE) {
+        _myFuelGauge->detach();
+    }
+    else if (_customType == OTOP_GAUGE) {
+        _myOTOPGauge->detach();
     }
 }
 
@@ -217,19 +358,21 @@ void MFCustomDevice::detach()
 void MFCustomDevice::update()
 {
     if (!_initialized) return;
-
     /* **********************************************************************************
         Do something if required
     ********************************************************************************** */
-    if (_customType == FF_GAUGE) {
-        FFGauge::update();
-    } else if (_customType == FUEL_GAUGE) {
-        FuelGauge::update();
-    } else if (_customType == NP_GAUGE) {
-        NPGauge::update();
-    } else if (_customType == OTOP_GAUGE) {
-        OTOPGauge::update();
-    } 
+    if (_customType == NP_GAUGE) {
+        _myNPGauge->update();
+    }
+    else if (_customType == FF_GAUGE) {
+        _myFFGauge->update();
+    }
+    else if (_customType == FUEL_GAUGE) {
+        _myFuelGauge->update();
+    }
+    else if (_customType == OTOP_GAUGE) {
+        _myOTOPGauge->update();
+    }
 }
 
 /* **********************************************************************************
@@ -241,13 +384,16 @@ void MFCustomDevice::set(int16_t messageID, char *setPoint)
 {
     if (!_initialized) return;
 
-    if (_customType == FF_GAUGE) {
-        FFGauge::set(messageID, setPoint);
-    } else if (_customType == FUEL_GAUGE) {
-        FuelGauge::set(messageID, setPoint);
-    } else if (_customType == NP_GAUGE) {
-        NPGauge::set(messageID, setPoint);
-    } else if (_customType == OTOP_GAUGE) {
-        OTOPGauge::set(messageID, setPoint);
+    if (_customType == NP_GAUGE) {
+        _myNPGauge->set(messageID, setPoint);
+    } 
+    else if  (_customType == FF_GAUGE) {
+        _myFFGauge->set(messageID, setPoint);
+    }
+    else if  (_customType == FUEL_GAUGE) {
+        _myFuelGauge->set(messageID, setPoint);
+    }
+    else if  (_customType == OTOP_GAUGE) {
+        _myOTOPGauge->set(messageID, setPoint);
     }
 }

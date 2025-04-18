@@ -1,49 +1,34 @@
 #include "FuelGauge.h"
-
-namespace FuelGauge
-{
+#include "allocateMem.h"
+#include "commandmessenger.h"
+#include <TFT_eSPI.h>
 
 #include "./include/DotMatrix_Regular-30.h"
 #include "./include/main_gauge.h"
 #include "./include/needle_left.h"
 #include "./include/needle_right.h"
 
-// #define digits      NotoSansMonoSCB20
-// #define PANEL_COLOR 0x7BEE
 
-TFT_eSPI    tft = TFT_eSprite(&tft); 
-TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft); 
-TFT_eSprite needleLeftSpr = TFT_eSprite(&tft); 
-TFT_eSprite needleRightSpr = TFT_eSprite(&tft); 
+static TFT_eSPI    tft = TFT_eSprite(&tft); 
+static TFT_eSprite mainGaugeSpr = TFT_eSprite(&tft); 
+static TFT_eSprite needleLeftSpr = TFT_eSprite(&tft); 
+static TFT_eSprite needleRightSpr = TFT_eSprite(&tft); 
 
-// Pointers to start of Sprites in RAM (these are then "image" pointers)
-uint16_t *mainGaugeSprPtr;
 
-// Function declarations
-float scaleValue(float x, float in_min, float in_max, float out_min, float out_max);
-void  setInstrumentBrightnessRatio(float ratio);
-void  setLeftFuel(float value);     // fuel quantity for left fuel tank
-void  setRightFuel(float value);    // fuel quantity for right fuel tank
-void  setPowerSave(bool enabled);
-// void  setScreenRotation(int rotation);
-void  drawGauge();
 
-// Variables
-float    leftFuel                  = 0;  // fuel quantity for left fuel tank
-float    rightFuel                  = 0;  // fuel quantity for right fuel tank
-float    instrumentBrightness      = 255;  // Instrument Brightness Ratio from sim
-float    instrumentBrightnessRatio = 0;
-float    needleLeftRotationAngle         = 0; // angle of rotation of needle based on the left fuel gauge
-float    needleRightRotationAngle         = 0; // angle of rotation of needle based on the right fuel gauge
-bool     powerSaveFlag             = false;
-uint32_t startLogoMillis           = 0;
-uint8_t  backlight_pin             = 0;
-uint16_t instrumentX0              = 0;
-uint16_t instrumentY0              = 0;
-// bool     showLogo                  = true;
-
-void init(uint8_t pin_backlight)
+FuelGauge::FuelGauge(uint8_t Pin1, uint8_t Pin2)
 {
+    _pin1 = Pin1;
+    _pin2 = Pin2;
+}
+
+void FuelGauge::begin()
+{
+}
+
+void FuelGauge::attach(uint16_t Pin3, char *init)
+{
+    _pin3 = Pin3;
     // backlight_pin = pin_backlight;
     backlight_pin = 16;
     pinMode(backlight_pin, OUTPUT);
@@ -55,10 +40,6 @@ void init(uint8_t pin_backlight)
     tft.setPivot(120, 120);
     tft.fillScreen(TFT_BLACK);
     tft.startWrite();
-
-#ifdef USE_DMA_TO_TFT
-    tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
-#endif
 
     mainGaugeSpr.createSprite(240, 240);
     mainGaugeSpr.setPivot(120, 120);
@@ -72,15 +53,18 @@ void init(uint8_t pin_backlight)
     needleRightSpr.pushImage(0, 0, NEEDLE_RIGHT_WIDTH, NEEDLE_RIGHT_HEIGHT, needle_right);
 }
 
-void stop()
+void FuelGauge::detach()
 {
+    if (!_initialised)
+        return;
     mainGaugeSpr.deleteSprite();
     needleLeftSpr.deleteSprite();
     needleRightSpr.deleteSprite();
     tft.endWrite();
+    _initialised = false;
 }
 
-void set(int16_t messageID, char *setPoint)
+void FuelGauge::set(int16_t messageID, char *setPoint)
 {
     /* **********************************************************************************
         Each messageID has it's own value
@@ -116,12 +100,12 @@ void set(int16_t messageID, char *setPoint)
     }
 }
 
-void update()
+void FuelGauge::update()
 {
     drawGauge();
 }
 
-void drawGauge()
+void FuelGauge::drawGauge()
 {
     mainGaugeSpr.fillSprite(TFT_BLACK);
     mainGaugeSpr.pushImage(0, 0, 240, 240, main_gauge);
@@ -132,28 +116,22 @@ void drawGauge()
 
     needleRightRotationAngle = scaleValue(rightFuel, 0, 25, 145, 35);
     needleRightSpr.pushRotated(&mainGaugeSpr, needleRightRotationAngle, TFT_BLUE);
-
-#ifdef USE_DMA_TO_TFT
-    while(tft.dmaBusy()) {}
-    tft.pushImageDMA(0, 0, 240, 240, mainGaugeSprPtr);
-#else
     mainGaugeSpr.pushSprite(0, 0, TFT_BLACK);
-#endif
 
 }
 
-void setLeftFuel (float value)
+void FuelGauge::setLeftFuel (float value)
 {
     leftFuel = value;
 }
 
-void setRightFuel (float value)
+void FuelGauge::setRightFuel (float value)
 {
     rightFuel = value;
 }
 
 
-void setInstrumentBrightnessRatio(float ratio)
+void FuelGauge::setInstrumentBrightnessRatio(float ratio)
 {
     instrumentBrightnessRatio = ratio;
     instrumentBrightness      = round(scaleValue(instrumentBrightnessRatio, 0, 1, 0, 255));
@@ -161,7 +139,7 @@ void setInstrumentBrightnessRatio(float ratio)
     analogWrite(backlight_pin, instrumentBrightness);
 }
 
-void setPowerSave(bool enabled)
+void FuelGauge::setPowerSave(bool enabled)
 {
     if (enabled) {
         analogWrite(backlight_pin, 0);
@@ -172,9 +150,8 @@ void setPowerSave(bool enabled)
     }
 }
 
-float scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
+float FuelGauge::scaleValue(float x, float in_min, float in_max, float out_min, float out_max)
 {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-}
